@@ -1,30 +1,38 @@
 import socket 
 from _thread import *
-import sys
 from collections import defaultdict as df
 import time
-
+import threading
+import logging
+import datetime
 
 class Server:
     def __init__(self):
         self.rooms = df(list)
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server.settimeout(1.0)
 
 
     def accept_connections(self, ip_address, port):
-        self.ip_address = ip_address
-        self.port = port
-        self.server.bind((self.ip_address, int(self.port)))
+        self.server.bind((ip_address, int(port)))
         self.server.listen(100)
+        self.server.settimeout(1.0)  # set 1 second timeout
+
+        print(f"Server listening on {ip_address}:{port}...")
 
         while True:
-            connection, address = self.server.accept()
-            print(str(address[0]) + ":" + str(address[1]) + " Connected")
+            try:
+                connection, address = self.server.accept()
+                print(f"{address[0]}:{address[1]} Connected")
+                start_new_thread(self.clientThread, (connection,))
+            except socket.timeout:
+                pass  # loop back, allows Ctrl+C to work
+            except KeyboardInterrupt:
+                print("Server shutting down...")
+                self.server.close()
+                break
 
-            start_new_thread(self.clientThread, (connection,))
-
-        self.server.close()
 
     
     def clientThread(self, connection):
@@ -90,13 +98,20 @@ class Server:
                         self.remove(client, room_id)
         print("Sent")
 
-
+    def writeToFile(self, connection, room_id, message: str):
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open("msgLog.txt", "a") as file:
+                file.write(f"[{timestamp}] [Room {room_id}] {connection.getpeername()}: {message}\n")
+        except Exception as e:
+            logging.error(f'Error writing to log file: {e}')
 
     def broadcast(self, message_to_send, connection, room_id):
         for client in self.rooms[room_id]:
             if client != connection:
                 try:
                     client.send(message_to_send.encode())
+                    self.writeToFile(connection, room_id, message_to_send)
                 except:
                     client.close()
                     self.remove(client, room_id)
@@ -111,5 +126,14 @@ if __name__ == "__main__":
     ip_address = "127.0.0.1"
     port = 12345
 
+    print(f"Server started on IP {ip_address}:{port}")
+
     s = Server()
-    s.accept_connections(ip_address, port)
+    threading.Thread(target=s.accept_connections, args=(ip_address, port), daemon=True).start()
+
+    try:
+        while True:
+            time.sleep(1)  # keep main thread alive
+    except KeyboardInterrupt:
+        print("Server shutting down...")
+        s.server.close()

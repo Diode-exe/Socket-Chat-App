@@ -1,7 +1,5 @@
 import socket
 import tkinter as tk
-from tkinter import font
-from tkinter import ttk
 from tkinter import filedialog
 import time
 import threading
@@ -49,6 +47,10 @@ class GUI:
         
         self.go.place(relx=0.35, rely=0.62)
 
+        self.Window.bind("<Return>", lambda event=None: self.sendButton(self.entryMsg.get()))
+        self.go.bind("<Return>", lambda event=None: self.goAhead(self.userEntryName.get(), self.roomEntryName.get()))
+
+
         self.Window.mainloop()
 
 
@@ -61,8 +63,9 @@ class GUI:
         self.login.destroy()
         self.layout()
 
-        rcv = threading.Thread(target=self.receive) 
+        rcv = threading.Thread(target=self.receive, daemon=True)
         rcv.start()
+
 
 
     def layout(self):
@@ -204,8 +207,9 @@ class GUI:
         self.textCons.config(state = tk.DISABLED) 
         self.msg=msg 
         self.entryMsg.delete(0, tk.END) 
-        snd= threading.Thread(target = self.sendMessage) 
-        snd.start() 
+        snd = threading.Thread(target=self.sendMessage, daemon=True)
+        snd.start()
+
 
 
     def receive(self):
