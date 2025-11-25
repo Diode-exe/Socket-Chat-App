@@ -262,12 +262,12 @@ class GUI:
                     self.textCons.see(tk.END)
 
             except Exception as e:
-                print(f"Receive error: {e}")  # Better error logging
+                print(f"Receive error: {e}") # Better error logging
                 self.server.close() 
                 break
 
     def sendMessage(self):
-        self.textCons.config(state=tk.DISABLED) 
+        self.textCons.config(state=tk.DISABLED)
         while True:  
             self.server.send(self.msg.encode())
             self.textCons.config(state = tk.NORMAL)
@@ -284,8 +284,6 @@ class GUI:
             print("Request sent successfully")  # Debug
         except Exception as e:
             messagebox.showerror("Error", f"Could not send rooms request:\n{e}")
-
-
 
 if __name__ == "__main__":
     ip_address = "192.168.0.109"
