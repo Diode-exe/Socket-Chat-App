@@ -7,10 +7,14 @@ import os
 
 class GUI:
     
-    def __init__(self, ip_address, port):
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.connect((ip_address, port))
-
+    def __init__(self, ip_address, port, discovery_port=12346):
+        self.ip_address = ip_address
+        self.port = port
+        self.discovery_port = discovery_port
+        
+        # Don't connect yet - wait until login
+        self.server = None
+        
         self.Window = tk.Tk()
         self.Window.withdraw()
 
@@ -61,16 +65,23 @@ class GUI:
 
 
     def goAhead(self, username, room_id=0):
-        self.name = username
-        self.server.send(str.encode(username))
-        time.sleep(0.1)
-        self.server.send(str.encode(room_id))
-        
-        self.login.destroy()
-        self.layout()
+        try:
+            # Create and connect socket here
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.connect((self.ip_address, self.port))
+            
+            self.name = username
+            self.server.send(str.encode(username))
+            time.sleep(0.1)
+            self.server.send(str.encode(room_id))
+            
+            self.login.destroy()
+            self.layout()
 
-        rcv = threading.Thread(target=self.receive, daemon=True)
-        rcv.start()
+            rcv = threading.Thread(target=self.receive, daemon=True)
+            rcv.start()
+        except Exception as e:
+            messagebox.showerror("Connection Error", f"Could not connect to server:\n{e}")
 
 
     def layout(self):
@@ -279,13 +290,24 @@ class GUI:
             break
     def requestRoomList(self):
         try:
-            print("Sending !rooms request...")  # Debug
-            self.server.send("!rooms".encode())
-            print("Request sent successfully")  # Debug
+            print("Connecting to discovery server...")
+            discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            discovery_socket.connect((self.ip_address, self.discovery_port))
+            
+            message = discovery_socket.recv(1024).decode()
+            discovery_socket.close()
+            
+            print(f"Received: {message}")
+            
+            if message.startswith("ROOM_LIST:"):
+                rooms = message.replace("ROOM_LIST:", "").split(",")
+                messagebox.showinfo("Available Rooms", "\n".join(rooms))
+            
         except Exception as e:
-            messagebox.showerror("Error", f"Could not send rooms request:\n{e}")
+            messagebox.showerror("Error", f"Could not get rooms:\n{e}")
 
 if __name__ == "__main__":
     ip_address = "192.168.0.109"
     port = 12345
-    g = GUI(ip_address, port)
+    discovery_port = 12346  # Add this
+    g = GUI(ip_address, port, discovery_port)  # Pass discovery port

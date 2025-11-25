@@ -13,6 +13,32 @@ class Server:
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.settimeout(1.0)
 
+    def discovery_server(self, ip_address, port):
+        """Runs on a separate port to provide room information"""
+        discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        discovery_socket.bind((ip_address, port))
+        discovery_socket.listen(10)
+        discovery_socket.settimeout(1.0)
+        
+        print(f"Discovery server listening on {ip_address}:{port}...")
+        
+        while True:
+            try:
+                conn, addr = discovery_socket.accept()
+                # Send room list immediately
+                rooms_list = list(self.rooms.keys())
+                if rooms_list:
+                    message = "ROOM_LIST:" + ",".join(rooms_list)
+                else:
+                    message = "ROOM_LIST:No rooms available"
+                
+                conn.send(message.encode())
+                conn.close()  # Close after sending
+            except socket.timeout:
+                pass
+            except KeyboardInterrupt:
+                break
 
     def accept_connections(self, ip_address, port):
         self.server.bind((ip_address, int(port)))
@@ -148,15 +174,18 @@ class Server:
 if __name__ == "__main__":
     ip_address = "0.0.0.0"
     port = 12345
+    discovery_port = 12346  # New discovery port
 
     print(f"Server started on IP {ip_address}:{port}")
+    print(f"Discovery server on port {discovery_port}")
 
     s = Server()
     threading.Thread(target=s.accept_connections, args=(ip_address, port), daemon=True).start()
+    threading.Thread(target=s.discovery_server, args=(ip_address, discovery_port), daemon=True).start()  # Add this
 
     try:
         while True:
-            time.sleep(1)  # keep main thread alive
+            time.sleep(1)
     except KeyboardInterrupt:
         print("Server shutting down...")
         s.server.close()
