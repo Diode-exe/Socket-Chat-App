@@ -5,10 +5,6 @@ import time
 import threading
 import logging
 import datetime
-from flask import Flask, url_for, request, render_template
-from config import Config
-import os
-import signal
 
 class Server:
     def __init__(self):
@@ -148,29 +144,6 @@ class Server:
             print("Message sent successfully")  # Debug
         except Exception as e:
             print(f"Error sending room list: {e}")
-
-template_folder = "templates"
-static_folder = "static"
-app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
-
-@app.route("/shutdown", methods=["GET", "POST"])
-def shutdown():
-    if request.remote_addr != "127.0.0.1":
-        return "Forbidden", 403
-
-    # Schedule shutdown after response is sent
-    threading.Timer(1.0, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
-
-    return "Server is shutting down..."
-
-def start_webserver():
-    if Config.get_config_bool("webserver"):
-        def run_server():
-            app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-        threading.Thread(target=run_server, daemon=True).start()
-    else:
-        logging.info("Not starting webserver")
-
 
 if __name__ == "__main__":
     ip_address = "0.0.0.0"
