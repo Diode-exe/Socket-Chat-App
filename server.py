@@ -72,31 +72,38 @@ class Server:
 
         self.rooms[room_id].append(connection)
 
-        while True:
-            try:
-                message = connection.recv(1024)
-                print(f"Received: {str(message.decode())}")  # Debug print
-                if message:
-                    decoded_msg = message.decode()
-                    
-                    if decoded_msg == "FILE":
-                        self.broadcastFile(connection, room_id, user_id)
-                    
-                    elif decoded_msg == "!rooms":
-                        print("Room list requested")  # Debug print
-                        self.sendRoomList(connection)
-                    
-                    else:
-                        message_to_send = "<" + str(user_id) + "> " + decoded_msg
-                        self.broadcast(message_to_send, connection, room_id)
+        try:
+            while True:
+                try:
+                    message = connection.recv(1024)
+                    print(f"Received: {str(message.decode())}")
+                    if message:
+                        decoded_msg = message.decode()
+                        
+                        if decoded_msg == "FILE":
+                            self.broadcastFile(connection, room_id, user_id)
+                        
+                        elif decoded_msg == "!rooms":
+                            print("Room list requested")
+                            self.sendRoomList(connection)
+                        
+                        else:
+                            message_to_send = "<" + str(user_id) + "> " + decoded_msg
+                            self.broadcast(message_to_send, connection, room_id)
 
-                else:
-                    self.remove(connection, room_id)
+                    else:
+                        # Client disconnected
+                        break
+                        
+                except Exception as e:
+                    print(f"Error in message loop: {repr(e)}")
                     break
-            except Exception as e:
-                print(repr(e))
-                print("Client disconnected earlier")
-                break
+        finally:
+            # Always clean up when thread exits
+            print(f"Client {user_id} disconnecting from room {room_id}")
+            self.remove(connection, room_id)
+            connection.close()
+            print(f"Rooms after removal: {list(self.rooms.keys())}")
             
     
     def broadcastFile(self, connection, room_id, user_id):
@@ -153,6 +160,9 @@ class Server:
     def remove(self, connection, room_id):
         if connection in self.rooms[room_id]:
             self.rooms[room_id].remove(connection)
+            if len(self.rooms[room_id]) == 0:
+                del self.rooms[room_id]
+                print(f"Room '{room_id}' deleted (empty)")
 
     def sendRoomList(self, connection):
         """Sends the current list of rooms to the client who requested it."""

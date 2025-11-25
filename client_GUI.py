@@ -301,7 +301,7 @@ class GUI:
             
             if message.startswith("ROOM_LIST:"):
                 rooms = message.replace("ROOM_LIST:", "").split(",")
-                messagebox.showinfo("Available Rooms", "\n".join(rooms))
+                messagebox.showinfo("Available Rooms", ", ".join(rooms))
             
         except Exception as e:
             messagebox.showerror("Error", f"Could not get rooms:\n{e}")
@@ -309,5 +309,5 @@ class GUI:
 if __name__ == "__main__":
     ip_address = "192.168.0.109"
     port = 12345
-    discovery_port = 12346  # Add this
-    g = GUI(ip_address, port, discovery_port)  # Pass discovery port
+    discovery_port = 12346
+    g = GUI(ip_address, port, discovery_port)
