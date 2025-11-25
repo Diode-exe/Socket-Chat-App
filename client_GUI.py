@@ -1,6 +1,6 @@
 import socket
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import time
 import threading
 import os
@@ -50,6 +50,12 @@ class GUI:
         self.Window.bind("<Return>", lambda event=None: self.sendButton(self.entryMsg.get()))
         self.go.bind("<Return>", lambda event=None: self.goAhead(self.userEntryName.get(), self.roomEntryName.get()))
 
+        self.roomListBtn = tk.Button(self.login, 
+                             text="Rooms", 
+                             font="Helvetica 10 bold", 
+                             bg="#ABB2B9",
+                             command=lambda: self.requestRoomList())
+        self.roomListBtn.place(relx=0.35, rely=0.75, relwidth=0.3, relheight=0.07)
 
         self.Window.mainloop()
 
@@ -65,7 +71,6 @@ class GUI:
 
         rcv = threading.Thread(target=self.receive, daemon=True)
         rcv.start()
-
 
 
     def layout(self):
@@ -121,7 +126,7 @@ class GUI:
         self.buttonMsg.place(relx = 0.77, 
 							rely = 0.008, 
 							relheight = 0.03, 
-							relwidth = 0.22) 
+							relwidth = 0.22)
 
 
         self.labelFile = tk.Label(self.Window, bg="#ABB2B9", height=70) 
@@ -216,11 +221,23 @@ class GUI:
         while True:
             try:
                 message = self.server.recv(1024).decode()
-
-                if str(message) == "FILE":
+                print(f"Received message: '{message}'")  # Debug
+                
+                # Handle room list response
+                if message.startswith("ROOM_LIST:"):
+                    print("Receiving ROOM_LIST...")
+                    rooms = message.replace("ROOM_LIST:", "").split(",")
+                    self.Window.after(0, lambda: messagebox.showinfo("Available Rooms", "\n".join(rooms)))
+                    continue  # Skip to next iteration, don't process as regular message
+                
+                # Handle file transfer
+                elif message == "FILE":
+                    print("Receiving FILE...")
                     file_name = self.server.recv(1024).decode()
                     lenOfFile = self.server.recv(1024).decode()
                     send_user = self.server.recv(1024).decode()
+                    
+                    print(f"File: {file_name}, Size: {lenOfFile}, From: {send_user}")
 
                     if os.path.exists(file_name):
                         os.remove(file_name)
@@ -232,23 +249,20 @@ class GUI:
                             total = total + len(data)     
                             file.write(data)
                     
-                    self.textCons.config(state=tk.DISABLED)
-                    self.textCons.config(state = tk.NORMAL)
+                    self.textCons.config(state=tk.NORMAL)
                     self.textCons.insert(tk.END, "<" + str(send_user) + "> " + file_name + " Received\n\n")
                     self.textCons.config(state = tk.DISABLED) 
                     self.textCons.see(tk.END)
-
+                
+                # Handle regular text messages
                 else:
-                    self.textCons.config(state=tk.DISABLED)
                     self.textCons.config(state = tk.NORMAL)
-                    self.textCons.insert(tk.END, 
-                                    message+"\n\n") 
-
+                    self.textCons.insert(tk.END, message+"\n\n") 
                     self.textCons.config(state = tk.DISABLED) 
                     self.textCons.see(tk.END)
 
-            except: 
-                print("An error occured!") 
+            except Exception as e:
+                print(f"Receive error: {e}")  # Better error logging
                 self.server.close() 
                 break
 
@@ -263,10 +277,17 @@ class GUI:
             self.textCons.config(state = tk.DISABLED) 
             self.textCons.see(tk.END)
             break
+    def requestRoomList(self):
+        try:
+            print("Sending !rooms request...")  # Debug
+            self.server.send("!rooms".encode())
+            print("Request sent successfully")  # Debug
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not send rooms request:\n{e}")
 
 
 
 if __name__ == "__main__":
-    ip_address = "127.0.0.1"
+    ip_address = "192.168.0.109"
     port = 12345
     g = GUI(ip_address, port)

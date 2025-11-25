@@ -49,22 +49,29 @@ class Server:
         while True:
             try:
                 message = connection.recv(1024)
-                print(str(message.decode()))
+                print(f"Received: {str(message.decode())}")  # Debug print
                 if message:
-                    if str(message.decode()) == "FILE":
+                    decoded_msg = message.decode()
+                    
+                    if decoded_msg == "FILE":
                         self.broadcastFile(connection, room_id, user_id)
-
+                    
+                    elif decoded_msg == "!rooms":
+                        print("Room list requested")  # Debug print
+                        self.sendRoomList(connection)
+                    
                     else:
-                        message_to_send = "<" + str(user_id) + "> " + message.decode()
+                        message_to_send = "<" + str(user_id) + "> " + decoded_msg
                         self.broadcast(message_to_send, connection, room_id)
 
                 else:
                     self.remove(connection, room_id)
+                    break
             except Exception as e:
                 print(repr(e))
                 print("Client disconnected earlier")
                 break
-    
+            
     
     def broadcastFile(self, connection, room_id, user_id):
         file_name = connection.recv(1024).decode()
@@ -121,9 +128,26 @@ class Server:
         if connection in self.rooms[room_id]:
             self.rooms[room_id].remove(connection)
 
+    def sendRoomList(self, connection):
+        """Sends the current list of rooms to the client who requested it."""
+        try:
+            print(f"sendRoomList called. Current rooms: {list(self.rooms.keys())}")  # Debug
+            rooms_list = list(self.rooms.keys())
+            if rooms_list:
+                # Join room names with commas, or any separator you like
+                message = "ROOM_LIST:" + ",".join(rooms_list)
+            else:
+                message = "ROOM_LIST:No rooms available"
+            
+            print(f"Sending message: '{message}'")  # Debug
+            connection.send(message.encode())
+            print("Message sent successfully")  # Debug
+        except Exception as e:
+            print(f"Error sending room list: {e}")
+
 
 if __name__ == "__main__":
-    ip_address = "127.0.0.1"
+    ip_address = "0.0.0.0"
     port = 12345
 
     print(f"Server started on IP {ip_address}:{port}")
